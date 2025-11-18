@@ -1,0 +1,46 @@
+name: Sync from Main Repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      files:
+        description: 'Comma-separated list of files to sync (relative paths)'
+        required: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout open-source repo
+        uses: actions/checkout@v3
+        with:
+          path: open-source
+      
+      - name: Checkout main repo
+        uses: actions/checkout@v3
+        with:
+          repository: your-org/konekt
+          path: main-repo
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+      
+      - name: Sync files
+        run: |
+          cd open-source
+          IFS=',' read -ra FILES <<< "${{ github.event.inputs.files }}"
+          for file in "${FILES[@]}"; do
+            if [ -f "../main-repo/$file" ]; then
+              mkdir -p "$(dirname "$file")"
+              cp "../main-repo/$file" "$file"
+              echo "Synced: $file"
+            fi
+          done
+      
+      - name: Commit changes
+        run: |
+          cd open-source
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Sync files from main repo" || exit 0
+          git push
+
